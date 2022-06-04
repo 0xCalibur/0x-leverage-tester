@@ -1,0 +1,28 @@
+{
+  "name": "0x-leverage-tester",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:0xCalibur/0x-leverage-tester.git",
+  "author": "0xCalibur <0xCalibur@protonmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "start": "yarn run build && node build/index.js",
+    "test": "jest",
+    "prettier:format": "prettier --config .prettierrc 'src/**/*.ts' --write",
+    "lint": "eslint . --ext .ts --fix"
+  },
+  "dependencies": {
+    "@types/node": "^17.0.39",
+    "@typescript-eslint/eslint-plugin": "^5.27.0",
+    "@typescript-eslint/parser": "^5.27.0",
+    "dotenv": "^16.0.1",
+    "eslint": "^8.16.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "ethers": "^5.6.8",
+    "prettier": "^2.6.2",
+    "ts-node": "^10.8.1",
+    "typescript": "^4.7.2"
+  }
+}
