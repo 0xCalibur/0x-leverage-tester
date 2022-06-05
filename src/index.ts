@@ -128,9 +128,18 @@ const run = async () => {
   );
 
   const shareToMin = await Limone.toShare(Pair.address, lpAmount, false);
+  // If some savax or wavax remains after the add liquidity, the minimum amount of
+  // it considered to swap again for more lp using one-side technic.
+  const minimumSavaxToSwapAgainForMoreLp = getBigNumber(1, 16);
+  const minimumWavaxToSwapAgainForMoreLp = getBigNumber(1, 16);
+
   const data = ethers.utils.defaultAbiCoder.encode(
-    ['bytes[]'],
-    [[querySavaxAmountFromMim.data, queryWavaxAmountFromMim.data]]
+    ['bytes[]', 'uint256', 'uint256'],
+    [
+      [querySavaxAmountFromMim.data, queryWavaxAmountFromMim.data],
+      minimumSavaxToSwapAgainForMoreLp,
+      minimumWavaxToSwapAgainForMoreLp,
+    ]
   );
 
   console.log(
@@ -168,7 +177,7 @@ const run = async () => {
 
   const tx = await SwapperTester.connect(wallet).testLeveraging(
     Limone.address,
-    '0x33c2854027A55279491017E1020aEe2eFF8B718A', // ZeroXUniswapLikeLPLevSwapper
+    '0xEdEa4518796EA45dFc38D78D9B8b9e070436AD51', // ZeroXUniswapLikeLPLevSwapper
     Pair.address,
     mimAmount,
     shareToMin,
