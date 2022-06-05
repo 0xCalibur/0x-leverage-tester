@@ -65,8 +65,6 @@ const run = async () => {
   const provider = new ethers.providers.JsonRpcProvider('https://api.avax.network/ext/bc/C/rpc', 43114);
   const wallet = Wallet.fromMnemonic(process.env.MNEMONIC || '').connect(provider);
 
-  const levSwapper = '0x0d62F99AC1Fd8B9aA51762a207e9E92Fe353C4F7';
-
   const Limone = new Contract('0xD825d06061fdc0585e4373F0A3F01a8C02b0e6A4', DegenBoxAbi, provider);
   const Pair = new Contract('0x4b946c91C2B1a7d7C40FB3C130CdfBaf8389094d', UniswapV2PairAbi, provider);
   const MIM = new Contract('0x130966628846BFd36ff31a822705796e8cb8C18D', ERC20Abi, provider);
@@ -77,12 +75,6 @@ const run = async () => {
 
   const sAvax = await Pair.token0();
   const wAvax = await Pair.token1();
-
-  const ZeroXExchangeProxy = new Contract(
-    '0xdef1c0ded9bec7f1a1670819833240f027b25eff',
-    ZeroXExchangeProxyAbi,
-    provider
-  );
 
   const savaxPriceInUsd = await SAvaxChainlink.latestAnswer(); // 18 decimals
   const wavaxPriceInUsd = await WAvaxChainlink.latestAnswer(); // 8  decimals
@@ -119,6 +111,13 @@ const run = async () => {
   const querySavaxAmountFromMim = await query0x(MIM.address, sAvax, slippage, mimAmountToSwapForSavax);
   // sell MIM => buy wAvaxBuyingPower
   const queryWavaxAmountFromMim = await query0x(MIM.address, wAvax, slippage, mimAmountToSwapForWavax);
+
+  const totalMimAmountToSwap = querySavaxAmountFromMim.sellAmount.add(queryWavaxAmountFromMim.sellAmount);
+
+  console.log(`Total MIM amount to swap: ${ethers.utils.formatEther(queryMimAmountFromSavax.buyAmount)}`);
+  if (totalMimAmountToSwap.gt(mimAmount)) {
+    throw new Error(`total mim amount to swap ${totalMimAmountToSwap.toString()} exceed ${mimAmount.toString()}`);
+  }
 
   const lpAmount = getMintedAmount(
     querySavaxAmountFromMim.buyAmount,
@@ -167,10 +166,9 @@ const run = async () => {
   console.log(`Amount of sAVAX to buy: ${ethers.utils.formatEther(sAvaxBuyingPower)}`);
   console.log(`Amount of wAVAX to buy: ${ethers.utils.formatEther(wAvaxBuyingPower)}`);
 
-  console.log('Sending transaction...');
   const tx = await SwapperTester.connect(wallet).testLeveraging(
     Limone.address,
-    levSwapper,
+    '0x33c2854027A55279491017E1020aEe2eFF8B718A', // ZeroXUniswapLikeLPLevSwapper
     Pair.address,
     mimAmount,
     shareToMin,
@@ -182,7 +180,9 @@ const run = async () => {
         .toString(),
     }
   );
+  console.log('Sending transaction...');
   await tx.wait();
+  console.log(`https://snowtrace.io/tx/${tx.hash}`);
 };
 
 run();
