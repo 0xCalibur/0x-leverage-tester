@@ -4,12 +4,11 @@ import EACAggregatorProxyAbi from './abi/EACAggregatorProxy';
 import UniswapV2PairAbi from './abi/UniswapV2Pair';
 import SwapperTesterAbi from './abi/SwapperTester';
 import ERC20Abi from './abi/ERC20';
-import ZeroXExchangeProxyAbi from './abi/ZeroXExchangeProxy';
 import DegenBoxAbi from './abi/DegenBox';
 import fetch from 'node-fetch';
 
 let provider = new ethers.providers.JsonRpcProvider('https://api.avax.network/ext/bc/C/rpc', 43114);
-let wallet = Wallet.fromMnemonic(process.env.MNEMONIC || '').connect(provider);
+let wallet = process.env.MNEMONIC ? Wallet.fromMnemonic(process.env.MNEMONIC).connect(provider) : Wallet.createRandom();
 let Limone: Contract;
 let Pair: Contract;
 let MIM: Contract;
@@ -97,7 +96,7 @@ const initialize = async () => {
   totalSupply = await Pair.totalSupply();
 };
 
-const testLeverage = async (mimAmount: BigNumber) => {
+const testLeverage = async (mimAmount: BigNumber, simulate: boolean) => {
   console.log('=== Leveraging ===');
   const mimValueInUsd = mimAmount.mul(mimPriceInUsd); // 26 decimals
 
@@ -192,32 +191,35 @@ const testLeverage = async (mimAmount: BigNumber) => {
   console.log(`Can buy around ${ethers.utils.formatEther(lpAmountBuyingPower)} Lp`);
   console.log(`Amount of sAVAX to buy: ${ethers.utils.formatEther(sAvaxBuyingPower)}`);
   console.log(`Amount of wAVAX to buy: ${ethers.utils.formatEther(wAvaxBuyingPower)}`);
+  console.log(`Current Block: ${provider.getBlockNumber().toString()}`);
 
-  const lpBefore = await Pair.balanceOf(wallet.address);
-  const tx = await SwapperTester.connect(wallet).testLeveraging(
-    Limone.address,
-    '0xEf05d8747a6Fc81509fb37EcF6b1a2D39290d881', // ZeroXUniswapLikeLPLevSwapper
-    Pair.address,
-    mimAmount,
-    shareToMin,
-    data,
-    {
-      gasLimit: querySavaxAmountFromMim.estimatedGas
-        .add(queryWavaxAmountFromMim.estimatedGas)
-        .add(BigNumber.from(500_000)) // add extra gas (should be estimated instead)
-        .toString(),
-    }
-  );
-  console.log('Sending transaction...');
-  await tx.wait();
-  console.log(`https://snowtrace.io/tx/${tx.hash}`);
+  if (simulate) {
+  } else {
+    const lpBefore = await Pair.balanceOf(wallet.address);
+    const tx = await SwapperTester.connect(wallet).testLeveraging(
+      Limone.address,
+      '0xEf05d8747a6Fc81509fb37EcF6b1a2D39290d881', // ZeroXUniswapLikeLPLevSwapper
+      Pair.address,
+      mimAmount,
+      shareToMin,
+      data,
+      {
+        gasLimit: querySavaxAmountFromMim.estimatedGas
+          .add(queryWavaxAmountFromMim.estimatedGas)
+          .add(BigNumber.from(500_000)) // add extra gas (should be estimated instead)
+          .toString(),
+      }
+    );
+    console.log('Sending transaction...');
+    await tx.wait();
+    console.log(`https://snowtrace.io/tx/${tx.hash}`);
 
-  const lpAfter = await Pair.balanceOf(wallet.address);
-
-  return lpAfter.sub(lpBefore);
+    const lpAfter = await Pair.balanceOf(wallet.address);
+    return lpAfter.sub(lpBefore);
+  }
 };
 
-const testLiquidation = async (lpAmount: BigNumber) => {
+const testLiquidation = async (lpAmount: BigNumber, simulate: boolean) => {
   console.log('=== Liquidation ===');
 
   const lpAmountToken0 = await sAvax.balanceOf(Pair.address);
@@ -239,31 +241,35 @@ const testLiquidation = async (lpAmount: BigNumber) => {
   console.log(`wAvax amount: ${ethers.utils.formatEther(amount1)}`);
   console.log(`MIM to buy from LP tokens: ${ethers.utils.formatEther(totalMimBuyAmount)}`);
   console.log(`Expected mimAmount min share: ${ethers.utils.formatEther(shareToMin)}`);
+  console.log(`Current Block: ${provider.getBlockNumber().toString()}`);
 
-  const tx = await SwapperTester.connect(wallet).testLiquidation(
-    Limone.address,
-    '0x1B77fDaBAa7FefD55f4aC075B6E817b8d773315b', // ZeroXUniswapLikeLPSwapper
-    Pair.address,
-    lpAmount,
-    shareToMin,
-    data,
-    {
-      gasLimit: querySavaxToMim.estimatedGas
-        .add(queryWavaxToMim.estimatedGas)
-        .add(BigNumber.from(500_000)) // add extra gas (should be estimated instead)
-        .toString(),
-    }
-  );
-  console.log('Sending transaction...');
-  await tx.wait();
-  console.log(`https://snowtrace.io/tx/${tx.hash}`);
+  if (simulate) {
+  } else {
+    const tx = await SwapperTester.connect(wallet).testLiquidation(
+      Limone.address,
+      '0x1B77fDaBAa7FefD55f4aC075B6E817b8d773315b', // ZeroXUniswapLikeLPSwapper
+      Pair.address,
+      lpAmount,
+      shareToMin,
+      data,
+      {
+        gasLimit: querySavaxToMim.estimatedGas
+          .add(queryWavaxToMim.estimatedGas)
+          .add(BigNumber.from(500_000)) // add extra gas (should be estimated instead)
+          .toString(),
+      }
+    );
+    console.log('Sending transaction...');
+    await tx.wait();
+    console.log(`https://snowtrace.io/tx/${tx.hash}`);
+  }
 };
 
 const run = async () => {
   await initialize();
-  const mimAmount = getBigNumber(20);
-  const lpAmount = await testLeverage(mimAmount);
-  await testLiquidation(lpAmount);
+  const mimAmount = getBigNumber(1_000_000);
+  const lpAmount = await testLeverage(mimAmount, true);
+  //await testLiquidation(lpAmount, true);
 };
 
 run();
